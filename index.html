@@ -1,0 +1,860 @@
+ <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Pathfinder - MATATAG Curriculum Architect</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* APP-LIKE BEHAVIOR SETTINGS */
+        html, body {
+            font-family: 'Inter', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+            overscroll-behavior: none;
+            -webkit-text-size-adjust: 100%;
+            height: 100%;
+            width: 100%;
+            overflow-x: hidden;
+        }
+
+        .animate-fade { animation: fadeIn 0.4s ease-out forwards; }
+        .animate-slide { animation: slideIn 0.3s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+        
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 4px; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 pb-24 md:pb-0">
+
+    <!-- Mobile Header -->
+    <div class="md:hidden bg-white border-b border-slate-200 p-4 sticky top-0 z-[100] flex items-center justify-between">
+        <div class="flex items-center gap-2">
+            <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold shadow-blue-200 shadow-lg">P</div>
+            <span class="font-bold text-lg tracking-tight tracking-tighter">Pathfinder</span>
+        </div>
+        <button onclick="window.navigate('settings')" class="p-2 text-slate-400"><i data-lucide="settings" class="w-5 h-5"></i></button>
+    </div>
+
+    <div class="flex min-h-screen">
+        <!-- Sidebar (Fixed Layout for PC) -->
+        <div class="hidden md:flex flex-col w-64 bg-white border-r border-slate-200 fixed h-full z-[100]">
+            <div class="px-6 py-8 flex items-center gap-3">
+                <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">P</div>
+                <span class="font-bold text-xl tracking-tight">Pathfinder</span>
+            </div>
+            <nav id="desktop-nav" class="flex-1 px-4 space-y-2"></nav>
+            <div class="p-4 border-t">
+                <button onclick="window.navigate('settings')" class="flex items-center gap-3 p-3 w-full text-slate-500 hover:bg-slate-50 rounded-lg transition-colors font-medium">
+                    <i data-lucide="settings" class="w-5 h-5"></i><span>Settings</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Content (Expanded Width for PC) -->
+        <main id="main-content" class="flex-1 p-4 md:p-8 md:ml-64 max-w-7xl mx-auto w-full relative z-0"></main>
+
+        <!-- Bottom Nav (Dark Mode, Mobile Only) -->
+        <div class="md:hidden fixed bottom-0 w-full bg-slate-900 border-t border-slate-800 z-[100] px-6 py-3 shadow-2xl">
+            <nav id="mobile-nav" class="flex justify-between items-center"></nav>
+        </div>
+    </div>
+
+    <!-- Universal Info Modal -->
+    <div id="info-modal" class="fixed inset-0 z-[200] bg-black/60 hidden flex items-end md:items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white w-full max-w-md rounded-[2rem] p-6 animate-slide shadow-2xl relative">
+            <button onclick="window.closeModal()" class="absolute top-4 right-4 p-2 bg-slate-100 rounded-full text-slate-500 hover:bg-slate-200 transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
+            <div id="modal-content"></div>
+        </div>
+    </div>
+
+    <!-- Elective Modal -->
+    <div id="elective-modal" class="fixed inset-0 z-[200] bg-black/50 hidden flex items-end md:items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white w-full max-w-md rounded-3xl p-6 animate-slide shadow-2xl relative">
+            <button onclick="window.closeModal()" class="absolute top-4 right-4 p-2 bg-slate-100 rounded-full text-slate-500"><i data-lucide="x" class="w-4 h-4"></i></button>
+            <div id="elective-content"></div>
+        </div>
+    </div>
+
+    <script>
+        const APP_VERSION = '5.21';
+        const STORAGE_KEY = 'pathfinder_v5.21';
+
+        // --- CORE SUBJECT DATA ---
+        const CORE_DATA = [
+            { 
+                name: "Effective Communication", 
+                sub: "Mabisang Komunikasyon", 
+                icon: "message-circle", 
+                color: "text-blue-500", 
+                bg: "bg-blue-50", 
+                desc: "English & Filipino Proficiency",
+                points: ["Oral and written communication skills.", "Academic and professional writing.", "Media literacy and analysis.", "Prepares learners for collegiate presentations."]
+            },
+            { 
+                name: "Life and Career Skills", 
+                sub: "Self-Development", 
+                icon: "heart-handshake", 
+                color: "text-orange-500", 
+                bg: "bg-orange-50", 
+                desc: "Self-Development & Leadership",
+                points: ["Cultivates emotional intelligence.", "Teaches leadership and teamwork.", "Guides learners in career planning.", "Focuses on personal wellness."]
+            },
+            { 
+                name: "General Mathematics", 
+                sub: "Logic & Numbers", 
+                icon: "calculator", 
+                color: "text-indigo-600", 
+                bg: "bg-indigo-50", 
+                desc: "Logic & Numbers",
+                points: ["Covers fundamental concepts in functions.", "Applies math to real-life problems.", "Develops critical thinking.", "Prerequisite for advanced STEM."]
+            },
+            { 
+                name: "General Science", 
+                sub: "Earth & Life", 
+                icon: "flask-conical", 
+                color: "text-emerald-500", 
+                bg: "bg-emerald-50", 
+                desc: "Earth & Life",
+                points: ["Integrates Biology, Chemistry, Physics.", "Promotes scientific literacy.", "Focuses on disaster readiness.", "Encourages evidence-based thinking."]
+            },
+            { 
+                name: "Pag-aaral ng Kasaysayan", 
+                sub: "Lipunang Pilipino", 
+                icon: "map", 
+                color: "text-red-500", 
+                bg: "bg-red-50", 
+                desc: "History & Citizenship",
+                points: ["Explores Philippine history and identity.", "Develops civic consciousness.", "Analyzes global context.", "Critical evaluation of history."]
+            }
+        ];
+
+        // --- FULL TRACK DATA ---
+        const TRACKS = [
+            {
+                id: 'academic',
+                name: 'Academic Track',
+                icon: 'book-open',
+                desc: 'Collegiate preparation and theoretical foundations.',
+                clusters: [
+                    { 
+                        id: 'assh', 
+                        name: 'Arts, Social Sciences, and Humanities', 
+                        weights: { verbal: 1.0, social: 1.0, artistic: 0.8, impact: 0.9, auditory: 0.7 },
+                        electives: [
+                            // TIER 1
+                            { name: 'Contemporary Literature 1', tier: 1, trigger: 'verbal', desc: 'Exploring 21st-century literary genres, themes, and global perspectives.' },
+                            { name: 'Creative Composition 1', tier: 1, trigger: 'verbal', desc: 'Introduction to writing techniques for fiction, poetry, and creative non-fiction.' },
+                            { name: 'Arts 1 (Visual/Literary/Media)', tier: 1, trigger: 'artistic', desc: 'Study of visual aesthetics, literary forms, and media production techniques.' },
+                            { name: 'Arts 2 (Music/Dance/Theater)', tier: 1, trigger: 'artistic', desc: 'Fundamentals of performance arts, including rhythm, movement, and acting.' },
+                            { name: 'Filipino 1 (Wika at Komunikasyon)', tier: 1, trigger: 'verbal', desc: 'Pagpapalalim ng kasanayan sa komunikasyon at pananaliksik sa wikang Filipino.' },
+                            { name: 'Intro to Philosophy', tier: 1, trigger: 'investigative', desc: 'Critical analysis of human experience, logic, ethics, and truth.' },
+                            { name: 'Social Sciences (Theory & Practice)', tier: 1, trigger: 'social', desc: 'Investigating social structures, human behavior, and cultural dynamics.' },
+                            { name: 'Philippine Governance', tier: 1, trigger: 'social', desc: 'Understanding the executive, legislative, and judicial branches of government.' },
+                            // TIER 2
+                            { name: 'Citizenship & Civic Engagement', tier: 2, trigger: 'social', desc: 'Developing skills for active participation in community and nation-building.' },
+                            { name: 'Contemporary Literature 2', tier: 2, trigger: 'verbal', desc: 'Advanced critical reading of diverse and complex contemporary texts.' },
+                            { name: 'Creative Composition 2', tier: 2, trigger: 'verbal', desc: 'Advanced writing workshop focusing on style, voice, and manuscript development.' },
+                            { name: 'Filipino Identity in the Arts', tier: 2, trigger: 'artistic', desc: 'Exploring national identity through traditional and modern Filipino art.' },
+                            { name: 'Filipino 2 (Larang Teknikal)', tier: 2, trigger: 'verbal', desc: 'Pagsulat ng mga teknikal at propesyonal na sulatin sa Filipino.' },
+                            { name: 'Filipino 2 (Isports)', tier: 2, trigger: 'kinesthietic', desc: 'Paggamit ng wikang Filipino sa pagbabalita at komentaryong pampalakasan.' },
+                            { name: 'Filipino 2 (Sining at Disenyo)', tier: 2, trigger: 'artistic', desc: 'Diskurso ng sining at disenyo gamit ang wikang pambansa.' },
+                            { name: 'Leadership in the Arts', tier: 2, trigger: 'enterprising', desc: 'Managing creative projects and leading artistic organizations.' }
+                        ]
+                    },
+                    { 
+                        id: 'bne', 
+                        name: 'Business and Entrepreneurship', 
+                        weights: { math: 0.6, enterprising: 1.0, income: 1.0, office: 0.8 },
+                        electives: [
+                            { name: 'Business 1 (Basic Accounting)', tier: 1, trigger: 'math', desc: 'Fundamentals of recording business transactions, bookkeeping, and financial statement preparation.' },
+                            { name: 'Intro to Org & Management', tier: 1, trigger: 'enterprising', desc: 'Principles of management, organizational structure, and leadership dynamics within business environments.' },
+                            { name: 'Business 2 (Finance & Taxation)', tier: 2, trigger: 'math', desc: 'Financial analysis, banking systems, and the basics of Philippine taxation laws and compliance.' },
+                            { name: 'Business 3 (Economics)', tier: 2, trigger: 'investigative', desc: 'Micro and macroeconomics principles applied to business decision-making and market analysis.' },
+                            { name: 'Contemporary Marketing', tier: 2, trigger: 'social', desc: 'Modern marketing strategies, consumer behavior analysis, and brand management in the digital age.' },
+                            { name: 'Entrepreneurship', tier: 2, trigger: 'enterprising', desc: 'Developing business plans, opportunity seeking, and managing a small business venture from start-up.' }
+                        ]
+                    },
+                    { 
+                        id: 'stem', 
+                        name: 'Science, Technology, Engineering, & Math', 
+                        weights: { math: 1.0, science: 1.0, logical: 0.8, mastery: 0.9, investigative: 1.0 },
+                        electives: [
+                            { name: 'Finite Mathematics 1', tier: 1, trigger: 'math', desc: 'Application of mathematical models in business, finance, and social sciences, focusing on matrices and linear programming.' },
+                            { name: 'Biology 1 & 2', tier: 1, trigger: 'science', desc: 'Comprehensive study of life processes, cell structure, genetics, evolution, and the diversity of living organisms.' },
+                            { name: 'Chemistry 1 & 2', tier: 1, trigger: 'science', desc: 'Investigation of matter, atomic structure, chemical bonding, kinetics, and the principles governing chemical reactions.' },
+                            { name: 'Physics 1 & 2', tier: 1, trigger: 'science', desc: 'Exploration of mechanics, thermodynamics, electricity, magnetism, optics, and modern physics concepts.' },
+                            { name: 'Earth and Space Science', tier: 1, trigger: 'investigative', desc: 'Study of the Earth\'s systems, geologic processes, meteorology, and astronomy to understand planetary dynamics.' }
+                        ]
+                    },
+                    { 
+                        id: 'shw', 
+                        name: 'Sports, Health, and Wellness', 
+                        weights: { kinesthietic: 1.0, realistic: 0.8, social: 0.6, health_skill: 1.0 },
+                        electives: [
+                            { name: 'Human Movement 1 (Anatomy)', tier: 1, trigger: 'science', desc: 'Study of musculoskeletal anatomy and its application to human movement in sports.' },
+                            { name: 'Human Movement 2 (Motor Skills)', tier: 2, trigger: 'kinesthietic', desc: 'Analysis of motor learning, control, and development across the lifespan.' },
+                            { name: 'PE 1 (Fitness & Recreation)', tier: 2, trigger: 'kinesthietic', desc: 'Principles of fitness training, recreational leadership, and wellness promotion.' },
+                            { name: 'PE 2 (Sports & Dance)', tier: 2, trigger: 'artistic', desc: 'Advanced techniques in individual/dual sports and fundamentals of rhythmic activities.' },
+                            { name: 'Sports Activity Management', tier: 2, trigger: 'enterprising', desc: 'Planning, organizing, and leading sports events and programs.' },
+                            { name: 'Sports Coaching', tier: 2, trigger: 'social', desc: 'Methodologies of coaching, athlete development, and team strategy.' },
+                            { name: 'Sports Officiating', tier: 2, trigger: 'realistic', desc: 'Rules, regulations, and mechanics of officiating various sports.' }
+                        ]
+                    }
+                ]
+            },
+            {
+                id: 'techpro',
+                name: 'Tech-Pro Track',
+                icon: 'wrench',
+                desc: 'Technical skills and immediate workforce readiness.',
+                clusters: [
+                    { 
+                        id: 'awhc', 
+                        name: 'Aesthetic, Wellness, and Human Care', 
+                        weights: { social: 0.9, artistic: 0.7, realistic: 0.6, vocational_skill: 0.9 },
+                        electives: [
+                            { name: 'Aesthetic Services (Beauty Care) – NC II', tier: 1, trigger: 'artistic', desc: 'Training in skin care, facial treatments, and makeup application techniques.' },
+                            { name: 'Barbering Services – NC II', tier: 1, trigger: 'realistic', desc: 'Techniques in hair cutting, shaving, and grooming services specifically for men.' },
+                            { name: 'Caregiving (Adult Care) – NC II', tier: 1, trigger: 'social', desc: 'Providing support and care for elderly and adult patients with special needs.' },
+                            { name: 'Caregiving (Child Care) – NC II', tier: 1, trigger: 'social', desc: 'Caring for infants and toddlers, focusing on their safety and development.' },
+                            { name: 'Hairdressing Services – NC II', tier: 1, trigger: 'artistic', desc: 'Hair styling, coloring, and chemical treatments for various hair types.' }
+                        ]
+                    },
+                    { 
+                        id: 'agri', 
+                        name: 'Agri-Fishery Business and Food Innovation', 
+                        weights: { nature: 1.0, realistic: 0.9, enterprising: 0.6, outdoors: 1.0 },
+                        electives: [
+                            { name: 'Agricultural Crops Production – NC II', tier: 1, trigger: 'nature', desc: 'Planting, growing, and harvesting crops using modern farming techniques.' },
+                            { name: 'Agro-Entrepreneurship – NC II', tier: 1, trigger: 'enterprising', desc: 'Managing agricultural businesses, farm planning, and marketing products.' },
+                            { name: 'Aquaculture – NC II', tier: 1, trigger: 'nature', desc: 'Breeding and harvesting fish and aquatic organisms in controlled environments.' },
+                            { name: 'Fish Capture – NC II', tier: 1, trigger: 'nature', desc: 'Operation of fishing gear and equipment for commercial fish capture.' },
+                            { name: 'Food Processing – NC II', tier: 1, trigger: 'investigative', desc: 'Processing, packaging, and preserving food products to ensure quality and safety.' },
+                            { name: 'Organic Agriculture Production – NC II', tier: 1, trigger: 'nature', desc: 'Producing organic vegetables, fertilizer, and raising organic livestock.' },
+                            { name: 'Poultry Production (Chicken) – NC II', tier: 1, trigger: 'nature', desc: 'Management of poultry health, breeding, and egg/meat production.' },
+                            { name: 'Ruminants Production – NC II', tier: 1, trigger: 'nature', desc: 'Raising and managing large livestock like cattle and goats.' },
+                            { name: 'Swine Production – NC II', tier: 1, trigger: 'nature', desc: 'Breeding, raising, and managing pigs for commercial production.' }
+                        ]
+                    },
+                    { 
+                        id: 'ace', 
+                        name: 'Artisanry and Creative Enterprise', 
+                        weights: { artistic: 0.9, realistic: 0.8, enterprising: 0.5, vocational_skill: 0.8 },
+                        electives: [
+                            { name: 'Garments and Artisanry – NC II', tier: 1, trigger: 'artistic', desc: 'Pattern making, cutting, and sewing garments and crafts.' },
+                            { name: 'Handicrafts (Weaving) – NC II', tier: 1, trigger: 'artistic', desc: 'Traditional weaving techniques and material preparation for local crafts.' }
+                        ]
+                    },
+                    {
+                        id: 'auto',
+                        name: 'Automotive and Small Engine Technologies',
+                        weights: { realistic: 1.0, investigative: 0.6, technological: 0.5, mechanical_skill: 1.0 },
+                        electives: [
+                            { name: 'Automotive Servicing (Electrical Repair) – NC II', tier: 1, trigger: 'technological', desc: 'Diagnosing and repairing automotive electrical and lighting systems.' },
+                            { name: 'Automotive Servicing (Engine and Chassis Repair) – NC II', tier: 1, trigger: 'realistic', desc: 'Overhauling engines and maintaining under-chassis components.' },
+                            { name: 'Driving and Automotive Servicing – NC I and NC II', tier: 1, trigger: 'realistic', desc: 'Operating vehicles safely and performing basic maintenance checks.' },
+                            { name: 'Motorcycle and Small Engine Servicing – NC II', tier: 1, trigger: 'realistic', desc: 'Repairing and maintaining motorcycles and small motorized equipment.' }
+                        ]
+                    },
+                    {
+                        id: 'construct',
+                        name: 'Construction and Building Technologies',
+                        weights: { realistic: 1.0, math: 0.6, artistic: 0.4, mechanical_skill: 0.9 },
+                        electives: [
+                            { name: 'Carpentry – NC I and NC II', tier: 1, trigger: 'realistic', desc: 'Layout, framing, formwork, and finishing for building construction.' },
+                            { name: 'Construction Operation – NC I and NC II', tier: 1, trigger: 'realistic', desc: 'Operating heavy equipment and performing civil works.' },
+                            { name: 'Manual Metal Arc Welding – NC I and/or NC II', tier: 1, trigger: 'realistic', desc: 'Welding carbon steel plates and pipes using SMAW process.' },
+                            { name: 'Technical Drafting – NC II', tier: 1, trigger: 'artistic', desc: 'Creating architectural and structural drawings using CAD software.' }
+                        ]
+                    },
+                    {
+                        id: 'cadt',
+                        name: 'Creative Arts and Design Technologies',
+                        weights: { artistic: 1.0, technological: 0.8, openness: 0.7, tech_skill: 0.8 },
+                        electives: [
+                            { name: 'Animation – NC II', tier: 1, trigger: 'technological', desc: 'Creating 2D and 3D animations for multimedia content.' },
+                            { name: 'Illustration – NC II', tier: 1, trigger: 'artistic', desc: 'Digital and traditional illustration techniques for publications.' },
+                            { name: 'Visual Graphic Design – NC II', tier: 1, trigger: 'artistic', desc: 'Designing visual layouts, logos, and branding materials.' }
+                        ]
+                    },
+                    {
+                        id: 'tourism',
+                        name: 'Hospitality and Tourism',
+                        weights: { social: 0.9, enterprising: 0.8, realistic: 0.6, service: 1.0 },
+                        electives: [
+                            { name: 'Bakery Operations – NC II', tier: 1, trigger: 'realistic', desc: 'Baking bread, pastries, and cakes for commercial production.' },
+                            { name: 'Events Management Services – NC II', tier: 1, trigger: 'enterprising', desc: 'Planning, coordinating, and executing events and conferences.' },
+                            { name: 'Food and Beverage Operations – NC II', tier: 1, trigger: 'social', desc: 'Table setting, serving food, and bar operations.' },
+                            { name: 'Hotel Operations (Front Office Services) – NC II', tier: 1, trigger: 'social', desc: 'Handling reservations, guest check-ins, and reception duties.' },
+                            { name: 'Hotel Operations (Housekeeping Services) – NC II', tier: 1, trigger: 'realistic', desc: 'Cleaning guest rooms and maintaining hotel public areas.' },
+                            { name: 'Kitchen Operations – NC II', tier: 1, trigger: 'realistic', desc: 'Preparing hot and cold meals in a professional kitchen environment.' },
+                            { name: 'Tourism Services – NC II', tier: 1, trigger: 'social', desc: 'Guiding tours and booking travel arrangements for tourists.' }
+                        ]
+                    },
+                    {
+                        id: 'ictsup',
+                        name: 'ICT Support and Computer Programming Technologies',
+                        weights: { technological: 1.0, logical: 0.9, realistic: 0.5, tech_skill: 1.0 },
+                        electives: [
+                            { name: 'Broadband Installation – NC II', tier: 1, trigger: 'technological', desc: 'Installing and configuring internet connectivity and subscriber terminals.' },
+                            { name: 'Computer Programming (.NET Technology) – NC III', tier: 1, trigger: 'logical', desc: 'Developing applications using the .NET framework.' },
+                            { name: 'Computer Programming (Java) – NC III', tier: 1, trigger: 'logical', desc: 'Object-oriented programming and application development using Java.' },
+                            { name: 'Computer Programming (Oracle Database) – NC III', tier: 1, trigger: 'logical', desc: 'Database design, management, and SQL programming.' },
+                            { name: 'Computer Systems Servicing – NC II', tier: 1, trigger: 'technological', desc: 'Assembling computers, installing operating systems, and networking.' },
+                            { name: 'Contact Center Services – NC II', tier: 1, trigger: 'verbal', desc: 'Handling customer service inquiries and inbound/outbound calls.' }
+                        ]
+                    },
+                    {
+                        id: 'indus',
+                        name: 'Industrial Technologies',
+                        weights: { realistic: 1.0, technological: 0.8, logical: 0.6, mechanical_skill: 0.8 },
+                        electives: [
+                            { name: 'Commercial Air-Conditioning Installation and Servicing – NC III', tier: 1, trigger: 'realistic', desc: 'Installing and repairing commercial HVAC systems.' },
+                            { name: 'Domestic Refrigeration and Air-Conditioning Servicing – NC II', tier: 1, trigger: 'realistic', desc: 'Servicing home refrigerators and air-conditioning units.' },
+                            { name: 'Electrical Installation Maintenance – NC II', tier: 1, trigger: 'realistic', desc: 'Installing wiring, lighting, and electrical outlets in buildings.' },
+                            { name: 'Electronic Product and Assembly Servicing – NC II', tier: 1, trigger: 'technological', desc: 'Assembling and troubleshooting consumer electronic products.' },
+                            { name: 'Mechatronics – NC II', tier: 1, trigger: 'technological', desc: 'Installing and maintaining mechatronic and automation devices.' },
+                            { name: 'Photovoltaic Systems Installation – NC II', tier: 1, trigger: 'technological', desc: 'Installing solar panels and connecting PV components.' }
+                        ]
+                    },
+                    {
+                        id: 'marine',
+                        name: 'Maritime Transport',
+                        weights: { realistic: 0.9, nature: 0.7, investigative: 0.6, outdoors: 0.8 },
+                        electives: [
+                            { name: 'Marine Engineering at the Support Level – Non-NC', tier: 1, trigger: 'technological', desc: 'Assisting in the operation and maintenance of ship engines.' },
+                            { name: 'Marine Transportation at the Support Level – Non-NC', tier: 1, trigger: 'realistic', desc: 'Navigational watchkeeping and basic deck operations.' },
+                            { name: 'Ships Catering Services – NC I and/or NC II', tier: 1, trigger: 'social', desc: 'Preparing meals and managing food services onboard vessels.' }
+                        ]
+                    }
+                ]
+            }
+        ];
+
+        // --- 7 PILLARS OF ASSESSMENT ---
+        const QUESTIONS = {
+            interest: [
+                // 1-2. REALISTIC (Industrial/Auto)
+                { id: 1, type: 'realistic', text: 'I enjoy repairing broken objects or working with tools and machinery.' },
+                { id: 2, type: 'realistic', text: 'I prefer hands-on tasks like building, assembling, or operating equipment.' },
+
+                // 3-4. INVESTIGATIVE (STEM/Research)
+                { id: 3, type: 'investigative', text: 'I like solving complex problems, analyzing data, or conducting experiments.' },
+                { id: 4, type: 'investigative', text: 'I am curious about how things work and enjoy researching scientific topics.' },
+
+                // 5-6. ARTISTIC (Arts/Creative)
+                { id: 5, type: 'artistic', text: 'I express myself through drawing, writing, music, or other creative arts.' },
+                { id: 6, type: 'artistic', text: 'I appreciate aesthetics and enjoy designing visual content or layouts.' },
+
+                // 7-8. SOCIAL (HUMSS/Service)
+                { id: 7, type: 'social', text: 'I find fulfillment in helping, teaching, or caring for other people.' },
+                { id: 8, type: 'social', text: 'I enjoy working in groups and discussing social issues or community concerns.' },
+
+                // 9-10. ENTERPRISING (Business/Leadership)
+                { id: 9, type: 'enterprising', text: 'I like leading teams, organizing events, or persuading others.' },
+                { id: 10, type: 'enterprising', text: 'I am interested in starting a business or managing a project.' },
+
+                // 11-12. CONVENTIONAL (Office/Admin)
+                { id: 11, type: 'conventional', text: 'I prefer clear rules, organized schedules, and structured tasks.' },
+                { id: 12, type: 'conventional', text: 'I am good at keeping records, handling data, or managing finances.' },
+
+                // 13-14. TECHNOLOGICAL (ICT)
+                { id: 13, type: 'technological', text: 'I enjoy coding, configuring computers, or troubleshooting software.' },
+                { id: 14, type: 'technological', text: 'I am interested in digital systems, networks, or how electronics function.' },
+
+                // 15-16. NATURE (Agri-Fishery)
+                { id: 15, type: 'nature', text: 'I like spending time outdoors, gardening, or working with animals.' },
+                { id: 16, type: 'nature', text: 'I am interested in sustainable farming, fishing, or environmental care.' },
+
+                // 17-18. SERVICE (Vocational/Care)
+                { id: 17, type: 'service', text: 'I enjoy providing personal services like hair styling, cooking, or wellness care.' },
+                { id: 18, type: 'service', text: 'I take pride in customer service and ensuring others are comfortable.' },
+
+                // 19-20. KINESTHETIC/VERBAL (Sports/Humanities)
+                { id: 19, type: 'kinesthietic', text: 'I learn best by moving my body and participating in physical activities or sports.' },
+                { id: 20, type: 'verbal', text: 'I enjoy reading literature, writing essays, or debating ideas.' }
+            ],
+            aptitude: [
+                // MATH (5)
+                { id: 21, type: 'math', text: 'If a project is 40% complete, what fraction of it remains to be done?', options: ['3/5', '2/5', '1/2', '4/10'], answer: '3/5' },
+                { id: 22, type: 'math', text: 'If 2x + 5 = 15, what is x?', options: ['5', '10', '7.5', '2.5'], answer: '5' },
+                { id: 23, type: 'math', text: 'What is the next number in the sequence: 2, 5, 10, 17, ...?', options: ['24', '25', '26', '27'], answer: '26' },
+                { id: 24, type: 'math', text: 'A shirt costs 500 pesos. It is on sale for 20% off. What is the new price?', options: ['400', '350', '450', '300'], answer: '400' },
+                { id: 25, type: 'math', text: 'Calculate the area of a rectangle with length 8cm and width 5cm.', options: ['13 sq cm', '40 sq cm', '26 sq cm', '30 sq cm'], answer: '40 sq cm' },
+                
+                // VERBAL / ENGLISH (5)
+                { id: 26, type: 'verbal', text: 'Choose the synonym for "Benevolent":', options: ['Cruel', 'Kind', 'Wealthy', 'Powerful'], answer: 'Kind' },
+                { id: 27, type: 'verbal', text: 'Which sentence is grammatically correct?', options: ['They is going to the store.', 'They are going to the store.', 'They be going to the store.', 'They was going to the store.'], answer: 'They are going to the store.' },
+                { id: 28, type: 'verbal', text: 'Choose the antonym for "Expand":', options: ['Contract', 'Grow', 'Widen', 'Increase'], answer: 'Contract' },
+                { id: 29, type: 'verbal', text: '"The pen is mightier than the sword" implies:', options: ['Writing is safer than fighting', 'Words can be more effective than violence', 'Pens are heavy', 'Swords are useless'], answer: 'Words can be more effective than violence' },
+                { id: 30, type: 'verbal', text: 'Which word is spelled correctly?', options: ['Recieve', 'Receive', 'Receve', 'Riceive'], answer: 'Receive' },
+
+                // LOGICAL / ABSTRACT (5)
+                { id: 31, type: 'logical', text: 'If A > B and B > C, then:', options: ['A < C', 'A > C', 'A = C', 'None of the above'], answer: 'A > C' },
+                { id: 32, type: 'logical', text: 'Which object does not belong?', options: ['Car', 'Bicycle', 'Truck', 'Airplane'], answer: 'Bicycle' }, 
+                { id: 33, type: 'logical', text: '1, 1, 2, 3, 5, 8, ... What is the next number?', options: ['11', '12', '13', '15'], answer: '13' },
+                { id: 34, type: 'logical', text: 'Bird is to Fly as Fish is to:', options: ['Water', 'Swim', 'Gill', 'Ocean'], answer: 'Swim' },
+                { id: 35, type: 'logical', text: 'Identify the pattern: Circle, Square, Triangle, Circle, Square, ...', options: ['Circle', 'Triangle', 'Square', 'Rectangle'], answer: 'Triangle' },
+
+                // SCIENCE (5)
+                { id: 36, type: 'science', text: 'What gas do plants primarily use for photosynthesis?', options: ['Oxygen', 'Nitrogen', 'Carbon Dioxide', 'Helium'], answer: 'Carbon Dioxide' },
+                { id: 37, type: 'science', text: 'Which planet is known as the Red Planet?', options: ['Venus', 'Mars', 'Jupiter', 'Saturn'], answer: 'Mars' },
+                { id: 38, type: 'science', text: 'The powerhouse of the cell is the:', options: ['Nucleus', 'Ribosome', 'Mitochondria', 'Cytoplasm'], answer: 'Mitochondria' },
+                { id: 39, type: 'science', text: 'Water boils at what temperature (Celsius)?', options: ['90', '100', '110', '120'], answer: '100' },
+                { id: 40, type: 'science', text: 'Which organ pumps blood through the body?', options: ['Lungs', 'Brain', 'Heart', 'Stomach'], answer: 'Heart' }
+            ],
+            personality: [
+                // OPENNESS (Creative, Curious, Open to new ideas)
+                { id: 41, type: 'openness', text: 'I am full of ideas and have a vivid imagination.' },
+                { id: 42, type: 'openness', text: 'I enjoy thinking about abstract concepts and theories.' },
+                { id: 43, type: 'openness', text: 'I am curious about the way things work and enjoy learning new subjects.' },
+                { id: 44, type: 'openness', text: 'I value artistic experiences and aesthetic beauty.' },
+
+                // CONSCIENTIOUSNESS (Organized, Disciplined, Reliable)
+                { id: 45, type: 'conscientiousness', text: 'I am always prepared and like to have a plan.' },
+                { id: 46, type: 'conscientiousness', text: 'I pay attention to details and dislike making mistakes.' },
+                { id: 47, type: 'conscientiousness', text: 'I get chores and tasks done right away without procrastinating.' },
+                { id: 48, type: 'conscientiousness', text: 'I like order and regularity in my daily schedule.' },
+
+                // EXTRAVERSION (Social, Energetic, Assertive)
+                { id: 49, type: 'extraversion', text: 'I feel comfortable around people and enjoy starting conversations.' },
+                { id: 50, type: 'extraversion', text: 'I don\'t mind being the center of attention.' },
+                { id: 51, type: 'extraversion', text: 'I have a lot of energy and like being active.' },
+                { id: 52, type: 'extraversion', text: 'I prefer working in teams rather than working alone.' },
+
+                // AGREEABLENESS (Cooperative, Empathetic, Trusting)
+                { id: 53, type: 'agreeableness', text: 'I sympathize with others\' feelings and am interested in their problems.' },
+                { id: 54, type: 'agreeableness', text: 'I try to avoid conflict and prefer cooperation over competition.' },
+                { id: 55, type: 'agreeableness', text: 'I believe that most people are basically good and trustworthy.' },
+                { id: 56, type: 'agreeableness', text: 'I enjoy doing things for others and making them feel welcome.' },
+
+                // NEUROTICISM/STABILITY (Emotional regulation, Stress management)
+                { id: 57, type: 'neuroticism', text: 'I remain calm and composed, even under pressure.' },
+                { id: 58, type: 'neuroticism', text: 'I rarely feel anxious or overwhelmed by stressful situations.' },
+                { id: 59, type: 'neuroticism', text: 'I am generally relaxed and handle setbacks well.' },
+                { id: 60, type: 'neuroticism', text: 'I am confident in my ability to solve difficult problems.' }
+            ],
+            values: [
+                // INCOME
+                { id: 61, type: 'income', text: 'A high salary is my top priority in a career.' },
+                { id: 62, type: 'income', text: 'I am motivated by opportunities for financial wealth accumulation.' },
+                { id: 63, type: 'income', text: 'I value jobs that offer performance-based bonuses or commissions.' },
+                { id: 64, type: 'income', text: 'Financial independence is more important to me than enjoying the work itself.' },
+
+                // IMPACT
+                { id: 65, type: 'impact', text: 'I want my work to directly help solve societal problems.' },
+                { id: 66, type: 'impact', text: 'It is important to me that my job improves my community.' },
+                { id: 67, type: 'impact', text: 'I want a career that advocates for justice or environmental protection.' },
+                { id: 68, type: 'impact', text: 'Knowing my work helps others gives me the greatest satisfaction.' },
+
+                // MASTERY
+                { id: 69, type: 'mastery', text: 'I want to be recognized as an expert or specialist in my field.' },
+                { id: 70, type: 'mastery', text: 'I enjoy jobs that require me to learn new skills continuously.' },
+                { id: 71, type: 'mastery', text: 'I am motivated by solving difficult technical or intellectual problems.' },
+                { id: 72, type: 'mastery', text: 'I take pride in producing high-quality work and refining my craft.' },
+
+                // CREATIVITY
+                { id: 73, type: 'creativity', text: 'I need a job where I can create new things or designs.' },
+                { id: 74, type: 'creativity', text: 'Freedom to express my own ideas is crucial for me.' },
+                { id: 75, type: 'creativity', text: 'I value innovation and experimenting with new approaches.' },
+                { id: 76, type: 'creativity', text: 'I dislike repetitive tasks and prefer variety and imagination.' },
+
+                // STABILITY
+                { id: 77, type: 'stability', text: 'Job security and a permanent position are very important to me.' },
+                { id: 78, type: 'stability', text: 'I prefer a predictable routine over a chaotic or changing schedule.' },
+                { id: 79, type: 'stability', text: 'I avoid high-risk ventures and prefer steady, reliable income.' },
+                { id: 80, type: 'stability', text: 'I value a clear career path with defined steps for promotion.' }
+            ],
+            skills: [
+                { id: 81, type: 'tech_skill', text: 'I can edit videos or photos using software (e.g., Photoshop, CapCut).' },
+                { id: 82, type: 'tech_skill', text: 'I know how to write basic computer code (HTML, Python) or create websites.' },
+                { id: 83, type: 'tech_skill', text: 'I can format a computer, install operating systems, or troubleshoot software issues.' },
+                { id: 84, type: 'tech_skill', text: 'I am proficient in using office productivity tools (Word, Excel, PowerPoint).' },
+                
+                // VOCATIONAL / HOME EC (AWHC / TOURISM)
+                { id: 85, type: 'vocational_skill', text: 'I can cook a complete meal without supervision.' },
+                { id: 86, type: 'vocational_skill', text: 'I know how to bake breads, cakes, or pastries.' },
+                { id: 87, type: 'vocational_skill', text: 'I can sew buttons, repair minor tears in clothing, or use a sewing machine.' },
+                { id: 88, type: 'vocational_skill', text: 'I can style hair, apply makeup, or perform basic grooming services.' },
+                
+                // MECHANICAL / INDUSTRIAL (AUTO / INDUS / CONSTRUCT)
+                { id: 89, type: 'mechanical_skill', text: 'I can disassemble and reassemble basic mechanical devices.' },
+                { id: 90, type: 'mechanical_skill', text: 'I know how to safely fix or install basic electrical wiring or outlets.' },
+                { id: 91, type: 'mechanical_skill', text: 'I can perform basic maintenance on a bicycle, motorcycle, or car.' },
+                { id: 92, type: 'mechanical_skill', text: 'I have experience using construction tools like hammers, saws, drills, or welding gear.' },
+                
+                // HEALTH & CARE (SHW / AWHC)
+                { id: 93, type: 'health_skill', text: 'I know how to apply first aid to minor injuries.' },
+                { id: 94, type: 'health_skill', text: 'I am comfortable assisting elderly people or children with their daily needs.' },
+                
+                // NATURE / AGRI (AGRI)
+                { id: 95, type: 'nature', text: 'I know how to plant, water, and grow vegetables or crops.' },
+                { id: 96, type: 'nature', text: 'I can feed and care for livestock (chickens, pigs, etc.) or pets responsibly.' },
+                
+                // SOFT SKILLS & ARTS (ASSH / ACE / BNE)
+                { id: 97, type: 'verbal', text: 'I can confidently speak in front of a group or host an event.' },
+                { id: 98, type: 'math', text: 'I can manage a personal budget and track expenses accurately.' },
+                { id: 99, type: 'enterprising', text: 'I have experience selling items, fundraising, or organizing small events.' },
+                { id: 100, type: 'artistic', text: 'I can sketch, paint, weave, or create physical crafts by hand.' }
+            ],
+            learning: [
+                // VISUAL (Charts, Graphs, Images)
+                { id: 101, type: 'visual', text: 'I learn best by seeing charts, graphs, and diagrams.' },
+                { id: 102, type: 'visual', text: 'I prefer using highlighters and color-coding my notes.' },
+                { id: 103, type: 'visual', text: 'I understand a map better than written directions.' },
+                { id: 104, type: 'visual', text: 'When I recall a memory, I see clear images in my head.' },
+                { id: 105, type: 'visual', text: 'I prefer teachers who use board work and overhead projectors.' },
+                
+                // AUDITORY (Listening, Discussing)
+                { id: 106, type: 'auditory', text: 'I learn best by listening to lectures and discussions.' },
+                { id: 107, type: 'auditory', text: 'I prefer discussing ideas with others to understand them.' },
+                { id: 108, type: 'auditory', text: 'I remember names better than faces.' },
+                { id: 109, type: 'auditory', text: 'I often talk to myself when solving a problem.' },
+                { id: 110, type: 'auditory', text: 'I prefer audiobooks or podcasts over reading.' },
+
+                // READING/WRITING (Text-based)
+                { id: 111, type: 'reading', text: 'I learn best by reading textbooks and taking notes.' },
+                { id: 112, type: 'reading', text: 'I prefer lists, definitions, and handouts.' },
+                { id: 113, type: 'reading', text: 'I enjoy reading books and articles in my free time.' },
+                { id: 114, type: 'reading', text: 'I prefer written instructions over oral ones.' },
+                { id: 115, type: 'reading', text: 'I write things down to remember them.' },
+
+                // KINESTHETIC (Doing, Moving)
+                { id: 116, type: 'kinesthetic', text: 'I learn best by doing things with my hands.' },
+                { id: 117, type: 'kinesthetic', text: 'I find it hard to sit still for long periods while studying.' },
+                { id: 118, type: 'kinesthetic', text: 'I prefer making models or doing experiments over reading theory.' },
+                { id: 119, type: 'kinesthetic', text: 'I use hand gestures when I talk to explain things.' },
+                { id: 120, type: 'kinesthetic', text: 'I remember how to do something better if I have physically done it.' }
+            ],
+            environment: [
+                // OUTDOORS / NATURE
+                { id: 121, type: 'outdoors', text: 'I enjoy working outside, exposed to weather elements (sun, rain).' },
+                { id: 122, type: 'outdoors', text: 'I prefer a job that allows me to interact with nature or the environment.' },
+                { id: 123, type: 'outdoors', text: 'I dislike being confined in a closed room for the whole day.' },
+                { id: 124, type: 'outdoors', text: 'I am comfortable with work that involves getting my hands dirty.' },
+                { id: 125, type: 'outdoors', text: 'I like jobs that involve fieldwork or traveling to different sites.' },
+
+                // OFFICE / INDOOR
+                { id: 126, type: 'office', text: 'I prefer working in a clean, temperature-controlled office.' },
+                { id: 127, type: 'office', text: 'I like having a dedicated desk or workspace with a computer.' },
+                { id: 128, type: 'office', text: 'I am productive in a quiet environment with minimal physical exertion.' },
+                { id: 129, type: 'office', text: 'I prefer digital interactions (emails, chats) over physical labor.' },
+                { id: 130, type: 'office', text: 'I enjoy a professional corporate setting with formal structures.' },
+
+                // TEAM / SOCIAL
+                { id: 131, type: 'team', text: 'I prefer working in a group where we can brainstorm ideas together.' },
+                { id: 132, type: 'team', text: 'I feel energized when my job involves meeting many new people daily.' },
+                { id: 133, type: 'team', text: 'I like roles that require constant communication and collaboration.' },
+                { id: 134, type: 'team', text: 'I don\'t mind noise and activity around me while I work.' },
+                { id: 135, type: 'team', text: 'I value a workplace with a strong sense of community and social bonding.' },
+
+                // DYNAMIC / ROUTINE
+                { id: 136, type: 'dynamic', text: 'I like a job where every day brings new and unexpected challenges.' },
+                { id: 137, type: 'dynamic', text: 'I get bored easily doing the same task over and over again.' },
+                { id: 138, type: 'dynamic', text: 'I prefer flexibility in my work hours and methods.' },
+                { id: 139, type: 'dynamic', text: 'I thrive in fast-paced environments with tight deadlines.' },
+                { id: 140, type: 'dynamic', text: 'I enjoy travel and changing locations frequently.' }
+            ]
+        };
+
+        let state = {
+            user: { name: 'Learner', section: '' },
+            view: 'dashboard', activeTab: 'menu',
+            exploreView: 'main', selectedCluster: null,
+            exploreScroll: 0, 
+            progress: { interest: false, aptitude: false, personality: false, values: false, skills: false, learning: false, environment: false },
+            data: { interest: {}, aptitude: {}, personality: {}, values: {}, skills: {}, learning: {}, environment: {} },
+            localAnswers: {}
+        };
+
+        // --- GLOBAL FUNCTIONS ---
+
+        window.init = () => {
+            const s = localStorage.getItem(STORAGE_KEY);
+            if (s) {
+                state = { ...state, ...JSON.parse(s), localAnswers: {}, exploreView: 'main', exploreScroll: 0, view: 'dashboard', activeTab: 'menu' };
+            }
+            window.render();
+        };
+
+        window.navigate = (v, t) => {
+            state.view = v; state.activeTab = t || 'menu';
+            state.exploreView = 'main';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            window.render();
+        };
+
+        window.openCluster = (trackId, clusterId) => {
+            state.exploreScroll = window.scrollY; // Save scroll
+            const track = TRACKS.find(t => t.id === trackId);
+            const cluster = track.clusters.find(c => c.id === clusterId);
+            state.selectedCluster = { ...cluster, trackName: track.name };
+            state.exploreView = 'cluster_detail';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            window.render();
+        };
+
+        window.backToExplore = () => {
+            state.exploreView = 'main';
+            window.render();
+            window.scrollTo({ top: state.exploreScroll, behavior: 'auto' });
+        };
+
+        window.openElective = (name, desc) => {
+            const modal = document.getElementById('elective-modal');
+            const content = document.getElementById('elective-content');
+            content.innerHTML = `
+                <div class="text-center">
+                    <div class="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4"><i data-lucide="book-open" class="w-6 h-6"></i></div>
+                    <h3 class="text-xl font-bold mb-2">${name}</h3>
+                    <p class="text-slate-600 text-sm leading-relaxed">${desc || 'Course description coming soon.'}</p>
+                </div>
+            `;
+            modal.classList.remove('hidden');
+            lucide.createIcons();
+        };
+
+        window.openCoreSubject = (index) => {
+            const subject = CORE_DATA[index];
+            const content = document.getElementById('modal-content');
+            content.innerHTML = `
+                <div>
+                    <div class="flex items-center gap-4 mb-6">
+                        <div class="w-14 h-14 ${subject.bg} ${subject.color} rounded-2xl flex items-center justify-center shrink-0">
+                            <i data-lucide="${subject.icon}" class="w-8 h-8"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-black text-slate-900 leading-tight">${subject.name}</h3>
+                            <p class="text-sm font-bold text-slate-400 uppercase tracking-wider">${subject.sub}</p>
+                        </div>
+                    </div>
+                    <div class="space-y-4">
+                        <h4 class="text-xs font-black text-slate-400 uppercase tracking-widest">Key Learning Areas</h4>
+                        <ul class="space-y-3">
+                            ${subject.points.map(p => `<li class="flex gap-3 text-sm text-slate-600 leading-relaxed"><i data-lucide="check-circle" class="w-5 h-5 text-green-500 shrink-0"></i><span>${p}</span></li>`).join('')}
+                        </ul>
+                    </div>
+                </div>`;
+            document.getElementById('info-modal').classList.remove('hidden');
+            lucide.createIcons();
+        };
+
+        window.closeModal = () => { 
+            document.getElementById('info-modal').classList.add('hidden'); 
+            document.getElementById('elective-modal').classList.add('hidden');
+        };
+        
+        window.setLocalAnswer = (id, val) => { state.localAnswers[id] = val; window.render(); };
+
+        window.submitAssessment = (type) => {
+            const res = { ...state.data[type] };
+            Object.keys(state.localAnswers).forEach(id => {
+                let q = null;
+                for(const key in QUESTIONS) if(QUESTIONS[key].find(i => i.id == id)) q = QUESTIONS[key].find(i => i.id == id);
+                if (q) {
+                    if (type === 'aptitude') { if (state.localAnswers[id] === q.answer) res[q.type] = (res[q.type] || 0) + 1; }
+                    else res[q.type] = (res[q.type] || 0) + parseInt(state.localAnswers[id]);
+                }
+            });
+            state.data[type] = res;
+            state.progress[type] = true;
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+            window.navigate('assessments', 'menu');
+        };
+
+        // --- RENDERERS ---
+
+        window.getNavHTML = (m) => {
+            const items = [
+                { id: 'dashboard', label: 'Dashboard', icon: 'layout-dashboard' },
+                { id: 'assessments', label: 'Assessments', icon: 'clipboard-list' },
+                { id: 'results', label: 'My Results', icon: 'award', disabled: !state.progress.interest },
+                { id: 'explore', label: 'Explore', icon: 'book-open' }
+            ];
+            
+            if (m) {
+                return items.map(i => `
+                    <button onclick="${i.disabled ? '' : `window.navigate('${i.id}')`}" class="flex flex-col items-center gap-1 flex-1 transition-all ${state.view===i.id?'text-white font-bold':'text-slate-500'}">
+                        <i data-lucide="${i.icon}" class="w-6 h-6"></i><span class="text-[10px] md:text-sm font-medium">${i.label}</span>
+                    </button>
+                `).join('');
+            } else {
+                return items.map(i => `
+                    <button onclick="${i.disabled ? '' : `window.navigate('${i.id}')`}" class="flex flex-row items-center justify-start w-full gap-3 px-4 py-3 rounded-xl transition-all ${state.view===i.id?'bg-blue-50 text-blue-600 font-bold':'text-slate-500 hover:bg-slate-50'} ${i.disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}">
+                        <i data-lucide="${i.icon}" class="w-5 h-5"></i><span class="text-sm font-medium">${i.label}</span>
+                    </button>
+                `).join('');
+            }
+        };
+
+        window.renderDashboard = () => {
+            const completedCount = Object.values(state.progress).filter(Boolean).length;
+            const maxModules = 7; 
+            const percentage = Math.round((completedCount/maxModules)*100);
+            return `
+                <div class="space-y-8 animate-fade">
+                    <header class="mb-4 text-center md:text-left"><p class="text-slate-500 text-sm">Let's find the perfect Senior High School strand for you.</p></header>
+                    <div class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl p-6 shadow-lg shadow-blue-200/50 relative overflow-hidden">
+                        <h2 class="text-xl font-bold mb-2 relative z-10 text-center">My Journey Progress</h2>
+                        <p class="text-blue-100 mb-6 relative z-10 text-center text-sm">Complete all 7 modules to unlock recommendations.</p>
+                        <div class="flex justify-between text-sm font-medium mb-2 relative z-10"><span>${completedCount} of 7 Completed</span><span>${percentage}%</span></div>
+                        <div class="w-full h-3 bg-blue-900/30 rounded-full overflow-hidden relative z-10 mb-6"><div class="h-full bg-white transition-all duration-1000 ease-out" style="width: ${percentage}%"></div></div>
+                    </div>
+                    <div class="bg-orange-50 border border-orange-100 rounded-2xl p-8 flex flex-col items-center text-center justify-center">
+                        <div class="w-12 h-12 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center mb-4"><i data-lucide="lightbulb"></i></div>
+                        <h3 class="font-bold text-slate-800">Did you know?</h3>
+                        <p class="text-sm text-slate-600 mt-2">Tech-Pro tracks have high immediate employment rates after graduation.</p>
+                    </div>
+                </div>`;
+        };
+
+        window.renderAssessments = () => {
+            if (state.activeTab === 'menu') return `
+                <div class="space-y-6 animate-fade">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        ${[
+                            { id: 'interest', label: 'Interests', icon: 'heart', color: 'text-rose-500', desc: 'What you enjoy doing' },
+                            { id: 'aptitude', label: 'Aptitude', icon: 'brain-circuit', color: 'text-violet-500', desc: 'Your raw potential' },
+                            { id: 'personality', label: 'Personality', icon: 'user', color: 'text-amber-500', desc: 'Your working style' },
+                            { id: 'values', label: 'Career Values', icon: 'shield-check', color: 'text-emerald-500', desc: 'Your motivations' },
+                            { id: 'skills', label: 'Skills & Competencies', icon: 'wrench', color: 'text-blue-500', desc: 'What you can do now' },
+                            { id: 'learning', label: 'Learning Style', icon: 'lightbulb', color: 'text-yellow-500', desc: 'How you learn best' },
+                            { id: 'environment', label: 'Work Environment', icon: 'building', color: 'text-indigo-500', desc: 'Where you thrive' }
+                        ].map(item => `
+                            <div onclick="window.navigate('assessments', '${item.id}')" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4 cursor-pointer transition-transform active:scale-95 hover:border-blue-300">
+                                <div class="w-12 h-12 rounded-xl bg-slate-50 flex items-center justify-center shrink-0"><i data-lucide="${item.icon}" class="${item.color} w-6 h-6"></i></div>
+                                <div class="flex-1">
+                                    <h3 class="font-bold text-lg text-slate-800">${item.label}</h3>
+                                    <p class="text-xs text-slate-500">${item.desc}</p>
+                                </div>
+                                ${state.progress[item.id] ? '<i data-lucide="check-circle" class="w-5 h-5 text-green-500"></i>' : '<i data-lucide="chevron-right" class="w-5 h-5 text-slate-300"></i>'}
+                            </div>`).join('')}
+                    </div>
+                </div>`;
+            
+            const q = QUESTIONS[state.activeTab];
+            const isRating = q && !q[0].options;
+
+            return `
+                <div class="animate-fade">
+                    <button onclick="window.navigate('assessments')" class="mb-4 text-slate-400 flex items-center gap-2 hover:text-slate-800"><i data-lucide="arrow-left" class="w-4 h-4"></i> Back</button>
+                    <h2 class="text-xl font-bold mb-6 capitalize">${state.activeTab} Module</h2>
+                    
+                    ${isRating ? `
+                        <div class="bg-blue-50 border border-blue-100 p-4 rounded-2xl mb-6 flex justify-between items-center text-xs md:text-sm text-blue-800 shadow-sm">
+                            <span class="font-bold">1 = Strongly Disagree</span>
+                            <div class="flex-1 mx-2 h-1 bg-blue-200 rounded-full"></div>
+                            <span class="font-bold">5 = Strongly Agree</span>
+                        </div>
+                    ` : ''}
+
+                    <div class="space-y-4">
+                        ${q.map((i, index) => `<div class="bg-white p-5 rounded-2xl border border-slate-100"><p class="mb-3 font-medium text-slate-800"><span class="font-bold text-slate-400 mr-2">${index + 1}.</span>${i.text}</p><div class="grid grid-cols-${i.options ? 1 : 5} gap-2">${i.options ? i.options.map(o => `<button onclick="window.setLocalAnswer(${i.id}, '${o}')" class="p-3 rounded-xl border text-sm text-left ${state.localAnswers[i.id]===o?'bg-blue-600 text-white border-blue-600':'bg-slate-50 hover:bg-slate-100'}">${o}</button>`).join('') : [1,2,3,4,5].map(v => `<button onclick="window.setLocalAnswer(${i.id}, ${v})" class="py-3 rounded-xl border ${state.localAnswers[i.id]==v?'bg-blue-600 text-white':'bg-slate-50 hover:bg-slate-100'}">${v}</button>`).join('')}</div></div>`).join('')}
+                    </div>
+                    <button onclick="window.submitAssessment('${state.activeTab}')" class="mt-8 w-full bg-blue-600 text-white p-4 rounded-2xl font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 transition-colors">Submit Assessment</button>
+                </div>`;
+        };
+
+        window.renderResults = () => {
+            const clusters = TRACKS.flatMap(t => t.clusters.map(c => {
+                let s = 0, w = 0;
+                Object.entries(c.weights).forEach(([k, weight]) => {
+                    const iVal = (state.data.interest[k] || 0) * 20;
+                    const vVal = (state.data.values[k] || 0) * 20;
+                    const skVal = (state.data.skills[k] || 0) * 20;
+                    const lVal = (state.data.learning[k] || 0) * 20;
+                    const eVal = (state.data.environment[k] || 0) * 20;
+                    const aVal = (state.data.aptitude[k] || 0) * 25; 
+                    
+                    const val = Math.max(iVal, aVal, vVal, skVal, lVal, eVal);
+                    if(val > 0) { s += val * weight; w += weight; }
+                });
+                return { ...c, track: t, score: w > 0 ? Math.round(s/w) : 0 };
+            })).sort((a,b) => b.score - a.score);
+
+            const top = clusters[0];
+            const doorway = clusters.find(c => c.track.id !== top.track.id) || clusters[1];
+            
+            const recElectives = top.electives.slice(0,3);
+            const doorElectives = doorway.electives.slice(0,3);
+
+            return `
+                <div class="space-y-8 animate-fade pb-12">
+                    <div class="bg-slate-900 rounded-3xl p-8 text-white relative overflow-hidden">
+                        <div class="absolute top-0 right-0 p-12 opacity-10 bg-gradient-to-l from-blue-500 rounded-full blur-3xl w-64 h-64"></div>
+                        <h2 class="text-xs font-bold tracking-widest text-slate-400 mb-2 uppercase">Your Primary Pathway</h2>
+                        <h1 class="text-3xl font-black mb-1">${top.track.name}</h1>
+                        <div class="flex items-center gap-2 mb-6"><span class="bg-blue-600 text-xs font-bold px-2 py-1 rounded text-white">Focus Cluster</span><span class="text-lg font-medium text-blue-200">${top.name}</span></div>
+                        <div class="bg-white/10 rounded-2xl p-5 border border-white/10">
+                            <h3 class="text-xs font-bold uppercase mb-3 flex items-center gap-2"><i data-lucide="list-checks" class="w-4 h-4"></i> Suggested Electives</h3>
+                            <div class="space-y-2">${recElectives.length > 0 ? recElectives.map(e => `<div class="flex justify-between items-center bg-slate-800/50 p-3 rounded-xl"><span class="text-sm font-medium">${e.name}</span></div>`).join('') : '<p class="text-xs text-slate-400">Complete more tests to unlock electives.</p>'}</div>
+                        </div>
+                    </div>
+                    <div class="bg-white border-2 border-dashed border-indigo-200 p-6 rounded-3xl relative">
+                        <div class="absolute -top-3 left-6 bg-indigo-100 text-indigo-700 text-[10px] font-bold px-3 py-1 rounded-full uppercase">Cross-Track Option</div>
+                        <h3 class="mt-2 font-bold text-indigo-900 flex items-center gap-2"><i data-lucide="door-open"></i> The Doorway</h3>
+                        <p class="text-xs text-slate-500 mb-4">Take subjects from <b>${doorway.track.name}</b> without shifting.</p>
+                        <div class="flex flex-wrap gap-2">${doorElectives.map(e => `<span class="bg-indigo-50 text-indigo-600 text-xs font-bold px-3 py-1 rounded-lg border border-indigo-100">${e.name}</span>`).join('')}</div>
+                    </div>
+                </div>
+            `;
+        };
+
+        window.renderExplore = () => {
+            if (state.exploreView === 'cluster_detail') {
+                const c = state.selectedCluster;
+                const tier1 = c.electives.filter(e => e.tier === 1);
+                const tier2 = c.electives.filter(e => e.tier === 2);
+                
+                // Helper to escape quotes for onclick
+                const escape = (str) => (str || '').replace(/'/g, "\\'");
+
+                return `
+                    <div class="animate-fade pb-12">
+                        <button onclick="window.backToExplore()" class="flex items-center gap-2 text-slate-500 mb-6 font-medium hover:text-blue-600"><i data-lucide="arrow-left" class="w-5 h-5"></i> Back to Tracks</button>
+                        <header class="mb-8">
+                            <div class="text-xs font-bold text-blue-600 uppercase mb-1">${c.trackName}</div>
+                            <h1 class="text-2xl font-black text-slate-900 leading-tight">${c.name}</h1>
+                        </header>
+                        ${tier1.length > 0 ? `<div class="mb-8"><h3 class="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3">${c.trackName === 'Tech-Pro Track' ? 'Electives' : 'Tier 1 Electives'}</h3><div class="grid grid-cols-1 gap-2">${tier1.map(e => `<button onclick="window.openElective('${escape(e.name)}', '${escape(e.desc)}')" class="flex items-center justify-between w-full p-4 bg-white border border-slate-200 rounded-xl hover:border-blue-300 hover:shadow-md transition-all text-left"><span class="font-bold text-slate-700 text-sm">${e.name}</span><i data-lucide="chevron-right" class="w-4 h-4 text-slate-300"></i></button>`).join('')}</div></div>` : ''}
+                        ${tier2.length > 0 ? `<div class="mb-8"><h3 class="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3">Tier 2 Electives</h3><div class="grid grid-cols-1 gap-2">${tier2.map(e => `<button onclick="window.openElective('${escape(e.name)}', '${escape(e.desc)}')" class="flex items-center justify-between w-full p-4 bg-white border border-slate-200 rounded-xl hover:border-blue-300 hover:shadow-md transition-all text-left"><span class="font-bold text-slate-700 text-sm">${e.name}</span><i data-lucide="chevron-right" class="w-4 h-4 text-slate-300"></i></button>`).join('')}</div></div>` : ''}
+                    </div>`;
+            }
+            return `
+                <div class="space-y-8 pb-12 animate-fade">
+                    <h1 class="text-2xl font-bold">Curriculum Framework</h1>
+                    <div class="space-y-4">
+                        <h2 class="text-sm font-bold text-slate-400 uppercase tracking-wider">Foundation</h2>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">${CORE_DATA.map((c, idx) => `<button onclick="window.openCoreSubject(${idx})" class="w-full bg-white p-4 rounded-2xl border border-slate-100 flex items-center gap-4 hover:border-blue-300 hover:shadow-md transition-all text-left"><div class="w-12 h-12 ${c.bg} ${c.color} rounded-full flex items-center justify-center shrink-0"><i data-lucide="${c.icon}"></i></div><div><h4 class="font-bold text-slate-800 text-sm">${c.name}</h4><p class="text-[10px] text-slate-400 mt-1">${c.desc}</p></div><i data-lucide="info" class="w-4 h-4 text-slate-300 ml-auto"></i></button>`).join('')}</div>
+                    </div>
+                    <div class="space-y-6">
+                        <h2 class="text-sm font-bold text-slate-400 uppercase tracking-wider">Tracks & Clusters</h2>
+                        ${TRACKS.map(t => `<div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm"><div class="flex gap-4 mb-4"><div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center"><i data-lucide="${t.icon}"></i></div><div><h3 class="font-bold text-lg">${t.name}</h3><p class="text-xs text-slate-400 w-4/5">${t.desc}</p></div></div><div class="grid grid-cols-1 gap-3">${t.clusters.map(c => `<button onclick="window.openCluster('${t.id}', '${c.id}')" class="w-full p-4 bg-slate-50 rounded-xl border border-slate-200 flex justify-between items-center hover:bg-blue-50 hover:border-blue-200 transition-colors"><span class="font-bold text-sm text-slate-700 text-left">${c.name}</span><i data-lucide="chevron-right" class="w-4 h-4 text-slate-400"></i></button>`).join('')}</div></div>`).join('')}
+                    </div>
+                </div>`;
+        };
+
+        window.render = () => {
+            const m = document.getElementById('main-content');
+            document.getElementById('desktop-nav').innerHTML = window.getNavHTML(false);
+            document.getElementById('mobile-nav').innerHTML = window.getNavHTML(true);
+            if(state.view === 'dashboard') m.innerHTML = window.renderDashboard();
+            else if(state.view === 'assessments') m.innerHTML = window.renderAssessments();
+            else if(state.view === 'results') m.innerHTML = window.renderResults();
+            else if(state.view === 'explore') m.innerHTML = window.renderExplore();
+            else m.innerHTML = `<div class="space-y-4"><h2 class="text-xl font-bold">Settings</h2><input class="w-full p-4 bg-white rounded-xl border" value="${state.user.name}" placeholder="Your Name"><button onclick="localStorage.clear();location.reload()" class="w-full p-4 bg-red-50 text-red-500 font-bold rounded-xl">Reset App</button></div>`;
+            lucide.createIcons();
+        };
+
+        window.init();
+    </script>
+</body>
+</html>
+
+
